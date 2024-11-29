@@ -58,7 +58,7 @@ class AltTextReminder(ananas.PineappleBot):
               file=self.log_file, flush=True)
     
     def init(self):
-        self.admin = 'pup_hime@slime.global'
+        self.admin = 'FIXME@FIXME.social'
         self.verbose_logging = False  # the bot's verbosity
         self.verbose = False  # ananas' own verbosity
         self.log_file = sys.stderr
@@ -195,6 +195,7 @@ class ImageBot(ananas.PineappleBot):
             self.log(function_name, f'booru_url = {str(self.booru_url)}')
             self.log(function_name, f'db_file = {str(self.db_file)}')
             self.log(function_name, f'blacklist_tags = {str(self.blacklist_tags)}')
+            self.log(function_name, f'blacklist_sources = {str(self.blacklist_sources)}')
             self.log(function_name, f'mandatory_tags = {str(self.mandatory_tags)}')
             self.log(function_name, f'cw_tags = {str(self.cw_tags)}')
             self.log(function_name, f'ratings = {str(self.ratings)}')
@@ -240,6 +241,16 @@ class ImageBot(ananas.PineappleBot):
         if 'db_file' in config and len(config.db_file) > 0: self.db_file = config.db_file
         if 'blacklist_tags' in config and len(config.blacklist_tags) > 0:
             self.blacklist_tags = f"{self.blacklist_tags},{config.blacklist_tags}".strip(",")
+        if 'allow_sources' in config and len(config.allow_sources) > 0:
+            if(len(self.allow_sources) > 0):
+                self.allow_sources = f"({self.allow_sources})|({config.allow_sources})"
+            else:
+                self.allow_sources = config.allow_sources
+        if 'blacklist_sources' in config and len(config.blacklist_sources) > 0:
+            if(len(self.blacklist_sources) > 0):
+                self.blacklist_sources = f"({self.blacklist_sources})|({config.blacklist_sources})"
+            else:
+                self.blacklist_sources = config.blacklist_sources
         if 'mandatory_tags' in config and len(config.mandatory_tags) > 0:
             self.mandatory_tags = f"{self.mandatory_tags},{config.mandatory_tags}".strip(",")
         if 'skip_tags' in config and len(config.skip_tags) > 0:
@@ -274,13 +285,15 @@ class ImageBot(ananas.PineappleBot):
         self.proxy = urllib.request.ProxyHandler({})
         self.opener = urllib.request.build_opener(self.proxy)
         self.mime = magic.Magic(mime=True)
-        self.admin = 'pup_hime@slime.global'
+        self.admin = 'FIXME@FIXME.social'
         self.verbose_logging = False  # the bot's verbosity
         self.verbose = False  # ananas' own verbosity
         self.log_file = sys.stderr
         self.log_to_stderr = True
 
         self.blacklist_tags = ""
+        self.allow_sources = ""
+        self.blacklist_sources = ""
         self.mandatory_tags = ""
         self.cw_tags = ""
         self.skip_tags = ""
@@ -413,6 +426,11 @@ class ImageBot(ananas.PineappleBot):
                     break
                 counter = 0
                 if self.booru_type == "e621":
+                    if len(self.allow_sources) > 0:
+                        allow_sources_regex = re.compile(self.allow_sources, re.IGNORECASE)
+                    if len(self.blacklist_sources) > 0:
+                        blacklist_sources_regex = re.compile(self.blacklist_sources, re.IGNORECASE)
+
                     for post in posts['posts']:
                         tag_string = (' '.join((' '.join(post['tags']['general']),
                                                 ' '.join(post['tags']['species']),
@@ -426,6 +444,8 @@ class ImageBot(ananas.PineappleBot):
                         if (len(post['sources']) > 0
                             and not any(x in post['sources'][0].lower() for x in ['drawfag', '.png', '.jpg', '.gif'])) \
                                 and post['flags']['deleted'] is False \
+                                and (not self.check_sources(post['sources'], blacklist_sources_regex) \
+                                    or self.check_sources(post['sources'], allow_sources_regex)) \
                                 and not self.check_tags(tag_string, self.blacklist_tags) \
                                 and (self.check_tags(tag_string, self.mandatory_tags)
                                      or len(self.mandatory_tags) == 0) \
@@ -494,6 +514,15 @@ class ImageBot(ananas.PineappleBot):
         conn.commit()
         conn.close()
         self.log(function_name, f'Added tags to post {post_id}: {tags}.')
+
+    def check_sources(self, post_sources, sources_regex):
+        results = []
+        if sources_regex is None:
+            return False
+        for source in post_sources:
+            if sources_regex.search(source) is not None:
+                return True
+        return False
 
     def check_tags(self, post_tag_string, tag_string, mode="or"):
         results = []
