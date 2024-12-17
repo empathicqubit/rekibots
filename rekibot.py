@@ -192,6 +192,7 @@ class ImageBot(ananas.PineappleBot):
             self.log(function_name, f'verbose_logging = {str(self.verbose_logging)}')
             self.log(function_name, f'verbose = {str(self.verbose)}')
             self.log(function_name, f'admin = {str(self.admin)}')
+            self.log(function_name, f'note = {str(self.note)}')
             self.log(function_name, f'booru_url = {str(self.booru_url)}')
             self.log(function_name, f'db_file = {str(self.db_file)}')
             self.log(function_name, f'blacklist_tags = {str(self.blacklist_tags)}')
@@ -236,6 +237,7 @@ class ImageBot(ananas.PineappleBot):
             elif config.verbose.lower() == 'no':
                 self.verbose_logging = False
                 self.verbose = False
+        if 'note' in config and len(config.note) > 0: self.note = config.note
         if 'admin' in config and len(config.admin) > 0: self.admin = config.admin
         if 'booru_url' in config and len(config.booru_url) > 0: self.booru_url = config.booru_url
         if 'db_file' in config and len(config.db_file) > 0: self.db_file = config.db_file
@@ -286,6 +288,7 @@ class ImageBot(ananas.PineappleBot):
         self.opener = urllib.request.build_opener(self.proxy)
         self.mime = magic.Magic(mime=True)
         self.admin = 'FIXME@FIXME.social'
+        self.note = "A bot which posts images periodically. Report bad stuff to %s"
         self.verbose_logging = False  # the bot's verbosity
         self.verbose = False  # ananas' own verbosity
         self.log_file = sys.stderr
@@ -399,7 +402,7 @@ class ImageBot(ananas.PineappleBot):
         self.reload_configs()
         self.build_db()
         try:
-            self.mastodon.account_update_credentials(note=f'Pic every 30 min. Report bad stuff to @{self.admin}')
+            self.mastodon.account_update_credentials(note=self.note % ('@' + self.admin, ))
         except Exception as e:
             self.log(function_name, e)
         self.log(function_name, 'Bot started.')
